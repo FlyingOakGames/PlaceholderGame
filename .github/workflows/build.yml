@@ -1,4 +1,4 @@
-name: Build and publish to Steam
+name: Build
 
 on: 
   push:
@@ -31,25 +31,12 @@ jobs:
     steps:
     
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         submodules: recursive
-
-    - name: Create LFS file list
-      run: git lfs ls-files -l | cut -d' ' -f1 | sort > .lfs-assets-id
-      
-    - name: Restore LFS cache
-      uses: actions/cache@v3
-      id: lfs-cache
-      with:
-        path: .git/lfs
-        key: ${{ runner.os }}-lfs-${{ hashFiles('.lfs-assets-id') }}-v1
-        
-    - name: Pull LFS objects
-      run: git lfs pull
       
     - name: Setup .NET
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
         
@@ -59,14 +46,14 @@ jobs:
     - name: Restore .NET dependencies
       run: dotnet restore
       
-    - name: Install Linux dependencies
+    - name: Install Linux dependencies for PublishAot
       run: sudo apt-get update && sudo apt-get install zlib1g-dev
       if: env.SCRIPT_OS_NAME == 'Linux'
         
     - name: Build x86_64 binary
       run: dotnet publish ./PlaceholderGame/PlaceholderGame.csproj -p:PublishDir=../${{ env.BUILD_FOLDER }} -c ${{ matrix.configuration }} -r ${{ env.SCRIPT_OS_RID }} /p:DebugType=None /p:DebugSymbols=false --self-contained
 
-    - name: Build arm64 binary
+    - name: Build arm64 binary (macOS only)
       run: dotnet publish ./PlaceholderGame/PlaceholderGame.csproj -p:PublishDir=../${{ env.BUILD_FOLDER_ARM }} -c ${{ matrix.configuration }} -r ${{ env.SCRIPT_OS_RID_ARM }} /p:DebugType=None /p:DebugSymbols=false --self-contained
       if: env.SCRIPT_OS_NAME == 'macOS'
 
@@ -85,7 +72,7 @@ jobs:
       if: env.SCRIPT_OS_NAME == 'macOS'
 
     - name: Upload build artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: '${{ env.SCRIPT_OS_NAME }}'
         path: '${{ env.BUILD_FOLDER }}'

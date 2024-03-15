@@ -1,6 +1,6 @@
 # PlaceholderGame
 
-A placeholder game for Windows, Linux, and macOS to upload to your Steam depots for whatever reason.
+A placeholder game that you don't need to build yourself (Github Actions will do it for you) for Windows, Linux, and macOS to upload to your Steam depots for whatever reason.
 
 Made with [MonoGame](https://monogame.net/) and leveraging .NET 8 ```PublishAot``` feature.
 

@@ -1,0 +1,107 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Build properties -->
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <MonoGamePlatform>DesktopGL</MonoGamePlatform>
+    <RuntimeIdentifiers>win-x64;osx-x64;osx-arm64;linux-x64</RuntimeIdentifiers>
+    <Platforms>x64;ARM64</Platforms>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RollForward>Major</RollForward>
+    <!-- These will generate perfomance issues -->
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <TieredCompilation>false</TieredCompilation>
+    <!-- Metadata -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Icon.ico</ApplicationIcon>
+    <AssemblyName>PlaceholderGame</AssemblyName>
+    <RootNamespace>PlaceholderGame</RootNamespace>
+    <StartupObject>PlaceholderGame.Program</StartupObject>
+    <Authors>Flying Oak Games</Authors>
+    <Version>1.0.0.0</Version>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Auto-detecting the build-time RID -->
+    <Arch>$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)</Arch>
+    <RuntimeIdentifier Condition=" '$([MSBuild]::IsOSPlatform(Windows))' ">win-$(Arch.ToLower())</RuntimeIdentifier>
+    <RuntimeIdentifier Condition=" '$([MSBuild]::IsOSPlatform(Linux))' ">linux-$(Arch.ToLower())</RuntimeIdentifier>
+    <RuntimeIdentifier Condition=" '$([MSBuild]::IsOSPlatform(OSX))' ">osx-$(Arch.ToLower())</RuntimeIdentifier>
+    <!-- Setting switches for each OS (these switches are used for loading native dependencies) -->
+    <DefineConstants Condition="$(RuntimeIdentifier.Contains('win'))">$(DefineConstants);WINDOWS</DefineConstants>
+    <DefineConstants Condition="$(RuntimeIdentifier.Contains('linux'))">$(DefineConstants);LINUX</DefineConstants>
+    <DefineConstants Condition="$(RuntimeIdentifier.Contains('osx'))">$(DefineConstants);OSX</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Icon.ico" />
+    <EmbeddedResource Include="Icon.bmp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <MonoGameContentReference Include="$(MSBuildThisFileDirectory)Content/Content.mgcb" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Trimming directive for PublishAot to work (at some point MonoGame could be updated to work without this directive) -->
+    <TrimmerRootAssembly Include="MonoGame.Framework" />
+  </ItemGroup>
+
+  <!-- DEPENDENCIES -->
+  
+  <ItemGroup>
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.1.303" />
+    <PackageReference Include="MonoGame.Content.Builder.Task" Version="3.8.1.303" />
+  </ItemGroup>
+
+  <!-- Launch.sh script-->
+
+  <ItemGroup Condition="$(DefineConstants.Contains('OSX'))">
+    <None Update="Launch.sh">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup Condition="$(DefineConstants.Contains('LINUX'))">
+    <None Update="Launch.sh">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- GENERATING NativeAOT BINARIES -->
+  
+  <PropertyGroup>
+    <!-- We can't cross-compile the native binary for a specific OS from another one -->
+    <DefineConstants Condition="$(DefineConstants.Contains('WINDOWS')) And '$([MSBuild]::IsOSPlatform(Windows))'">$(DefineConstants);NATIVEAOT</DefineConstants>
+    <DefineConstants Condition="$(DefineConstants.Contains('LINUX')) And '$([MSBuild]::IsOSPlatform(Linux))'">$(DefineConstants);NATIVEAOT</DefineConstants>
+    <DefineConstants Condition="$(DefineConstants.Contains('OSX')) And '$([MSBuild]::IsOSPlatform(OSX))'">$(DefineConstants);NATIVEAOT</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(DefineConstants.Contains('NATIVEAOT'))">
+    <PublishAot>true</PublishAot>
+    <StripSymbols Condition=" '$(BuildingInsideVisualStudio)'!='true' ">true</StripSymbols>
+    <DebugSymbols Condition=" '$(BuildingInsideVisualStudio)'!='true' ">false</DebugSymbols>
+    <DebugType Condition=" '$(BuildingInsideVisualStudio)'!='true' ">none</DebugType>
+  </PropertyGroup>
+
+  <!-- POST-BUILD CLEAN UP SCRIPTS -->
+
+  <!-- This script properly packages the project for Linux and macOS (into a .app bundle) -->
+
+  <PropertyGroup>
+    <!-- Because PowerShell executable has a different name on each OS... -->
+    <PowerShellCmd Condition=" '$([MSBuild]::IsOSPlatform(Windows))' ">PowerShell</PowerShellCmd>
+    <PowerShellCmd Condition=" '$([MSBuild]::IsOSPlatform(Linux))' ">pwsh</PowerShellCmd>
+    <PowerShellCmd Condition=" '$([MSBuild]::IsOSPlatform(OSX))' ">pwsh</PowerShellCmd>
+  </PropertyGroup>
+  
+  <Target Name="CleanBuildOutput" AfterTargets="Build">
+    <Exec Command="$(PowerShellCmd) -ExecutionPolicy Unrestricted -File post_build.ps1 $(OutDir) None $(ProjectDir)" />
+  </Target>
+
+  <Target Name="CleanPublishOutput" AfterTargets="Publish">
+    <Exec Command="$(PowerShellCmd) -ExecutionPolicy Unrestricted -File post_build.ps1 $(PublishDir) $(RuntimeIdentifier) $(ProjectDir)" />
+  </Target>
+
+</Project>

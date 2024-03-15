@@ -1,0 +1,92 @@
+name: Build and publish to Steam
+
+on: 
+  push:
+    branches:
+      - 'main'
+
+jobs:
+  build:
+  
+    strategy:
+      matrix:
+        os: [windows-2022, ubuntu-22.04, macos-12]
+        configuration: [Release]
+    
+    runs-on: ${{ matrix.os }}
+    
+    env:
+      BUILD_FOLDER: 'Artifacts'
+      BUILD_FOLDER_ARM: 'Artifacts_ARM'
+      CONTENT_FOLDER: 'Content'
+      DOTNET_VERSION: '8.0.x'
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      SCRIPT_OS_NAME: ${{ fromJSON('{"windows-2022":"Windows","ubuntu-22.04":"Linux","macos-12":"macOS"}')[matrix.os] }}
+      SCRIPT_OS_RID: ${{ fromJSON('{"windows-2022":"win-x64","ubuntu-22.04":"linux-x64","macos-12":"osx-x64"}')[matrix.os] }}
+      SCRIPT_OS_RID_ARM: ${{ fromJSON('{"windows-2022":"win-arm64","ubuntu-22.04":"linux-arm64","macos-12":"osx-arm64"}')[matrix.os] }}
+
+    name: Build ${{ matrix.configuration }} ${{ fromJSON('{"windows-2022":"Windows","ubuntu-22.04":"Linux","macos-12":"macOS"}')[matrix.os] }}
+    
+    steps:
+    
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Create LFS file list
+      run: git lfs ls-files -l | cut -d' ' -f1 | sort > .lfs-assets-id
+      
+    - name: Restore LFS cache
+      uses: actions/cache@v3
+      id: lfs-cache
+      with:
+        path: .git/lfs
+        key: ${{ runner.os }}-lfs-${{ hashFiles('.lfs-assets-id') }}-v1
+        
+    - name: Pull LFS objects
+      run: git lfs pull
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+        
+    - name: Restore .NET tools
+      run: dotnet tool restore
+      
+    - name: Restore .NET dependencies
+      run: dotnet restore
+      
+    - name: Install Linux dependencies
+      run: sudo apt-get update && sudo apt-get install zlib1g-dev
+      if: env.SCRIPT_OS_NAME == 'Linux'
+        
+    - name: Build x86_64 binary
+      run: dotnet publish ./PlaceholderGame/PlaceholderGame.csproj -p:PublishDir=../${{ env.BUILD_FOLDER }} -c ${{ matrix.configuration }} -r ${{ env.SCRIPT_OS_RID }} /p:DebugType=None /p:DebugSymbols=false --self-contained
+
+    - name: Build arm64 binary
+      run: dotnet publish ./PlaceholderGame/PlaceholderGame.csproj -p:PublishDir=../${{ env.BUILD_FOLDER_ARM }} -c ${{ matrix.configuration }} -r ${{ env.SCRIPT_OS_RID_ARM }} /p:DebugType=None /p:DebugSymbols=false --self-contained
+      if: env.SCRIPT_OS_NAME == 'macOS'
+
+    - name: Fixing x86_64 macOS weirdness
+      shell: pwsh
+      run: Move-Item -Path ${{ env.BUILD_FOLDER }}/PlaceholderGame -Destination ${{ env.BUILD_FOLDER }}/PlaceholderGame.app/Contents/MacOS/PlaceholderGame -Force
+      if: env.SCRIPT_OS_NAME == 'macOS'
+
+    - name: Fixing arm64 macOS weirdness
+      shell: pwsh
+      run: Move-Item -Path ${{ env.BUILD_FOLDER_ARM }}/PlaceholderGame -Destination ${{ env.BUILD_FOLDER_ARM }}/PlaceholderGame.app/Contents/MacOS/PlaceholderGame -Force
+      if: env.SCRIPT_OS_NAME == 'macOS'
+
+    - name: Create macOS universal binary
+      run: lipo -create ${{ env.BUILD_FOLDER }}/PlaceholderGame.app/Contents/MacOS/PlaceholderGame ${{ env.BUILD_FOLDER_ARM }}/PlaceholderGame.app/Contents/MacOS/PlaceholderGame -output ./PlaceholderGame.lipo && cp -rf ./PlaceholderGame.lipo ${{ env.BUILD_FOLDER }}/PlaceholderGame.app/Contents/MacOS/PlaceholderGame
+      if: env.SCRIPT_OS_NAME == 'macOS'
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: '${{ env.SCRIPT_OS_NAME }}'
+        path: '${{ env.BUILD_FOLDER }}'
+        retention-days: 1

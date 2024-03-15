@@ -2,16 +2,16 @@
 
 A placeholder game for Windows, Linux, and macOS to upload to your Steam depots for whatever reason.
 
-Made with (MonoGame)[https://monogame.net/] and leveraging .NET 8 ```PublishAot``` feature.
+Made with [MonoGame](https://monogame.net/) and leveraging .NET 8 ```PublishAot``` feature.
 
 This project also acts as a cross-platform MonoGame template.
 
 # How to use
 
 - Fork the project
-- Edit (empty.png)[blob/main/PlaceholderGame/Content/empty.png] to your liking
+- Edit [empty.png](blob/main/PlaceholderGame/Content/empty.png) to your liking
 - Push the changes to Github
-- Wait for the (Actions)[actions/] to complete and download the generated artifacts from there
+- Wait for the [Actions](actions/) to complete and download the generated artifacts from there
 - Upload those builds to Steam
 
 # MonoGame template
@@ -22,6 +22,6 @@ Whenever you push commits, Actions will build the game for all operating systems
 
 ## How does it work?
 
-- The (.csproj)[blob/main/PlaceholderGame/PlaceholderGame.csproj] is configured so that NativeAOT only runs when publishing projects and only on systems it can run (avoid cross-compilation errors)
-- A (post-build script)[blob/main/PlaceholderGame/post_build.ps1] is creating the macOS App Bundle
-- Github (Actions)[blob/main/.github/workflows/build.yml] is used to build the game and fuse macOS x64 and arm64 binaries into one universal binary supporting both
+- The [.csproj](blob/main/PlaceholderGame/PlaceholderGame.csproj) is configured so that NativeAOT only runs when publishing projects and only on systems it can run (avoid cross-compilation errors)
+- A [post-build script](blob/main/PlaceholderGame/post_build.ps1) is creating the macOS App Bundle
+- Github [Actions](blob/main/.github/workflows/build.yml) is used to build the game and fuse macOS x64 and arm64 binaries into one universal binary supporting both
